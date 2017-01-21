@@ -6,7 +6,9 @@ VPATH += ../include
 
 TARGET = bookstore
 
-LOCAL_INCLUDE = -I../include
+LOCAL_INCLUDE_DIR = -I ../include
+#不知为什么下面的异常
+#LOCAL_INCLUDE_FILE = -include ../include/Sales_item.h 
 
 $(TARGET) : main.o
 	@echo TARGET:$@ 
@@ -16,7 +18,7 @@ $(TARGET) : main.o
 main.o : main.cpp Sales_item.h
 	@echo TARGET:$@
 	@echo OBJECTS:$^
-	g++ -c main.cpp $(LOCAL_INCLUDE) $(CXXFLAGS)
+	g++ -c main.cpp $(LOCAL_INCLUDE_DIR) $(CXXFLAGS)
 
 clean:
 	rm main.o bookstore
