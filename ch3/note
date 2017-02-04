@@ -1,0 +1,166 @@
+c++ lib cctype provide function to check char type ...is digit or cntrl
+isalnum(c)
+isalpha(c)
+iscntrl(c)
+isdigit(c)
+isgraph(c)
+islower(c)
+isprint(c)
+ispunct(c)
+isspace(c)
+isupper(c)
+isxdigit(c)
+tolower(c)
+toupper(c)
+
+ container_of()函数
+
+1.该宏定义在include/linux/kernel.h中
+
+439/**
+
+440 * container_of - cast a member of a structure out to the containing structure
+
+441 * @ptr:        the pointer to the member.
+
+442 * @type:       the type of the container struct this is embedded in.
+
+443 * @member:     the name of the member within the struct.
+
+444 *
+
+445 */
+
+446 #define container_of(ptr, type, member) ({                      /
+
+447        const typeof( ((type *)0)->member ) *__mptr = (ptr);    /
+
+448      (type *)( (char *)__mptr - offsetof(type,member) );})
+
+它的作用显而易见，那就是根据一个结构体变量中的一个域成员变量的指针来获取指向整个结构体变量的指针。比如，有一个结构体变量，其定义如下：
+
+struct demo_struct {
+
+          type1 member1;
+
+           type2 member2;
+
+           type3 member3;
+
+           type4 member4;
+
+      };
+
+     struct demo_struct demo;
+
+同时，在另一个地方，获得了变量demo中的某一个域成员变量的指针，比如：
+
+type3  *memp = get_member_pointer_from_somewhere();
+
+此时，如果需要获取指向整个结构体变量的指针，而不仅仅只是其某一个域成员变量的指针，我们就可以这么做：
+
+struct demo_struct *demop = container_of(memp, struct demo_struct, member3);
+
+这样，我们就通过一个结构体变量的一个域成员变量的指针获得了整个结构体变量的指针。
+
+下面说一说我对于这个container_of的实现的理解：
+
+首先，我们将container_of(memp, struct demo_struct, type3)根据宏的定义进行展开如下：
+
+struct demo_struct *demop = ({                      /
+
+const typeof( ((struct demo_struct *)0)->member3 ) *__mptr = (memp);    /
+
+(struct demo_struct *)( (char *)__mptr - offsetof(struct demo_struct, member3) );})
+
+其中，typeof是GNU C对标准C的扩展，它的作用是根据变量获取变量的类型。因此，上述代码中的第2行的作用是首先使用typeof获取结构体域变量member3的类型为 type3，然后定义了一个type3指针类型的临时变量__mptr，并将实际结构体变量中的域变量的指针memp的值赋给临时变量__mptr。
+
+(char *)__mptr转换为字节型指针。(char *)__mptr - offsetof(type,member) )用来求出结构体起始地址（为char *型指针），然后(type *)( (char *)__mptr - offsetof(type,member) )在(type *)作用下进行将字节型的结构体起始指针转换为type *型的结构体起始指针。
+
+ 
+
+假设结构体变量demo在实际内存中的位置如下图所示：
+
+     demo
+
+ +-------------+ 0xA000
+
+ |   member1   |
+
+ +-------------+ 0xA004
+
+ |   member2   |
+
+ +-------------+ 0xA010
+
+ |   member3   |
+
+ +-------------+ 0xA018
+
+ |   member4   |
+
+ +-------------+
+
+ 
+
+则，在执行了上述代码的第2行之后__mptr的值即为0xA010。
+
+ 
+
+再看上述代码的第3行，其中需要说明的是offsetof，它定义在include/linux/stddef.h中，其定义如下：
+
+1.#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+
+先分析一下这个宏的运行机理：
+
+一共4步
+
+1. ( (TYPE *)0 ) 将零转型为TYPE类型指针;
+
+2. ((TYPE *)0)->MEMBER 访问结构中的数据成员;
+
+3. &( ( (TYPE *)0 )->MEMBER )取出数据成员的地址;
+
+4.(size_t)(&(((TYPE*)0)->MEMBER))结果转换类型。巧妙之处在于将0转换成(TYPE*)，结构以内存空间首地址0作为起始地址，则成员地址自然为偏移地址；
+
+ 
+
+同样，我们将上述的offsetof调用展开，即为：
+
+1. (struct demo_struct *)( (char *)__mptr - ((size_t) &((struct demo_struct *)0)->member3) );
+
+可见，offsetof的实现原理如上所述，就是取结构体中的域成员相对于地址0的偏移地址，也就是域成员变量相对于结构体变量首地址的偏移。
+
+ 
+
+因此，offsetof(struct demo_struct, member3)调用返回的值就是member3相对于demo变量的偏移。结合上述给出的变量地址分布图可知，offsetof(struct demo_struct, member3)将返回0x10。
+
+ 
+
+于是，由上述分析可知，此时，__mptr==0xA010，offsetof(struct demo_struct, member3)==0x10。
+
+因此， (char *)__mptr - ((size_t) &((struct demo_struct *)0)->member3) == 0xA010 - 0x10 == 0xA000，也就是结构体变量demo的首地址（如上图所示）。
+
+ 
+
+这就是从结构体某成员变量指针来求出该结构体的首指针。指针类型从结构体某成员变量类型转换为该结构体类型。
+
+由此，container_of实现了根据一个结构体变量中的一个域成员变量的指针来获取指向整个结构体变量的指针的功能。
+
+看完别人写的了，下面自己再用通俗的话把下面的宏解释一下，加深理解。
+
+container_of(memp, struct demo_struct, type3) = ({                      \
+
+const typeof( ((struct demo_struct *)0)->member3 ) *__mptr = (memp);    \
+
+(struct demo_struct *)( (char *)__mptr - offsetof(struct demo_struct, member3) );})
+
+第二行获得member3类型，并定义一个临时指针，把memp赋值给这个临时指针，不知道直接使用memp可不可以，为什么这里要重新定义一个临时指针？？
+
+第二行把这个临时指针转化成（char*）类型，再减去这个成员在结构体中的偏移量就得到了整个结构的首地址。
+
+偏移量获得好理解，如下
+
+#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+
+那0强制转化成这个结构类型地址，那么此时这个结构内部的成员地址就是这个成员在这个结构中的偏移地址了
