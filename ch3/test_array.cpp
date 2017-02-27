@@ -20,5 +20,19 @@ int main() {
 		cout << *beg << endl;
 		beg++;
 	}
+
+	int a2[] = {
+		[0] = 0,
+		[1] = 1,
+		[2] = 2,
+	};
+
+	beg = begin(a2);
+	last = end(a2);
+
+	while (beg != last) {
+		cout << *beg << endl;
+		beg++;
+	}
 	return 0;
 }
