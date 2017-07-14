@@ -34,4 +34,8 @@ string result = [](const string & str){ return "Hello from " + str; }("second La
 //example 2, 
 auto fn = [](const string& str) {return "hello from " + str; };
 cout << fn("call 1") << endl;  
-cout << fn("call 2") << endl; 
+cout << fn("call 2") << endl;
+
+git clone git://sourceware.org/git/glibc.git
+cd glibc
+git checkout --track -b local_glibc-2.25 origin/release/2.25/master
