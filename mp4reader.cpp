@@ -30,7 +30,13 @@ ssize_t readAt(int fd, off64_t offset, void* data, size_t size) {
     return ::read(fd, data, size);
 }
 
-void parseChunk(int fd, off64_t* offset, int depth) {
+int get_file_size(const char* filename) {
+	struct  stat finfo;
+	int size = stat(filename, &finfo);
+	return finfo.st_size;
+}
+
+void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
 	ssize_t readed = 0;
 	uint32_t hdr[2];
 	char chunk[5];
@@ -38,14 +44,14 @@ void parseChunk(int fd, off64_t* offset, int depth) {
 	int32_t chunk_type;
 	off64_t data_offset;
 
-	while ((readed = readAt(fd, *offset, hdr, 8)) != 0) {
+	while ((readed = readAt(fd, *offset, hdr, 8)) != 0 && *offset < end) {
 
     	chunk_size = ntohl(hdr[0]);
     	chunk_type = ntohl(hdr[1]);
 
     	MakeFourCCString(chunk_type, chunk);
 
-    	cout << "at offset " << *offset << " depth " << depth << endl;
+    	cout << "at offset " << *offset << " end " << end << endl;
     	cout << "readed " << readed << endl;
     	cout << "chunk size " << chunk_size << endl;
     	cout << "chunk type " << chunk << endl;
@@ -69,18 +75,23 @@ void parseChunk(int fd, off64_t* offset, int depth) {
 	        case FOURCC('w', 'a', 'v', 'e'):
 	        {
 		        off64_t stop_offset = *offset + chunk_size;
-		        cout << "go to next depth, should stop at " << stop_offset << endl;
 	            *offset = data_offset;
-	            while (*offset < stop_offset) {
-	                parseChunk(fd, offset, depth + 1);
-	                cout << "returned to depth " << depth << endl;
-	            }
+	            cout << "go to " << depth + 1 << " stop at " << stop_offset << endl;
+	            parseChunk(fd, offset, stop_offset, depth + 1);
+	            cout << "returned to depth " << depth << endl;
 
 	            if (*offset != stop_offset) {
-	                cout << "ERROR offset not match " << *offset << endl;
+	                cout << "ERROR offset "<< *offset <<" not match " << stop_offset << endl;
+	            } else {
+	            	cout << "returned success " << *offset <<endl;
 	            }
 	            break;
 
+	        }
+	        case FOURCC('f', 't', 'y', 'p'):
+	        {
+	        	*offset += chunk_size;
+	        	break;
 	        }
 	        default:
 	        {
@@ -91,9 +102,17 @@ void parseChunk(int fd, off64_t* offset, int depth) {
 	}
 }
 
-int main() {
-	int fd = open("test.mp4", O_RDONLY);
-	off64_t totaloffset = 0;
-	parseChunk(fd, &totaloffset, 0);
+int main(int argc, char* argv[]) {
+	if (argc != 2) {
+		cout << "please just input filename" << endl;
+		return 0;
+	}
+	auto filename = argv[1];
+	auto filesize = get_file_size(filename);
+	cout << "the file's size " << filesize << endl;
+	int fd = open(filename, O_RDONLY);
+	off64_t beginoffset = 0;
+	off64_t totaloffset = filesize;
+	parseChunk(fd, &beginoffset, filesize, 0);
 	return 0;
 }
