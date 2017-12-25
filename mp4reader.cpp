@@ -43,6 +43,7 @@ void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
 	uint64_t chunk_size;
 	int32_t chunk_type;
 	off64_t data_offset;
+	off64_t chunk_data_size;
 
 	while ((readed = readAt(fd, *offset, hdr, 8)) != 0 && *offset < end) {
 
@@ -53,9 +54,11 @@ void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
 
     	cout << "at offset " << *offset << " end " << end << endl;
     	cout << "readed " << readed << endl;
-    	cout << "chunk size " << chunk_size << endl;
+    	/* size is stored by byte*/
+    	cout << "chunk size " << chunk_size  << "(bytes)"<< endl;
     	cout << "chunk type " << chunk << endl;
     	data_offset = *offset + 8;
+    	chunk_data_size = chunk_size - 8;
     	switch(chunk_type) {
 	        case FOURCC('m', 'o', 'o', 'v'):
 	        case FOURCC('t', 'r', 'a', 'k'):
@@ -90,7 +93,32 @@ void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
 	        }
 	        case FOURCC('f', 't', 'y', 'p'):
 	        {
-	        	*offset += chunk_size;
+	        	off64_t stop_offset = *offset + chunk_size;
+	        	*offset = data_offset;
+
+	        	/*major_brand*/
+	        	uint32_t brand;
+	        	char dinfo[5];
+	        	readAt(fd, *offset, &brand, 4);
+	        	brand = ntohl(brand);
+	        	MakeFourCCString(brand, dinfo);
+	        	cout << "major_brand " << dinfo << endl;
+
+	        	/*minor_version*/
+	        	*offset += 4;
+	        	readAt(fd, *offset, &brand, 4);
+	        	brand = ntohl(brand);
+	        	cout << "minor_version "  << brand << endl;
+
+	        	/*compatible_brands*/
+	        	*offset += 4;
+	        	while (*offset < stop_offset) {
+	        		readAt(fd, *offset, &brand, 4);
+	        		brand = ntohl(brand);
+	        		MakeFourCCString(brand, dinfo);
+	        		cout << "compatible_brands " << dinfo << endl;
+	        		*offset += 4;
+	        	}
 	        	break;
 	        }
 	        default:
