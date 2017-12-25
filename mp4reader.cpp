@@ -18,6 +18,13 @@ inline void MakeFourCCString(uint32_t x, char *s) {
     s[4] = '\0';
 }
 
+inline void MakeNString(uint32_t x, char *s, size_t n) {
+	for (int i = 0; i < n; i++) {
+		s[i] = (x >> (n-i-1)*8) & 0xff;
+	}
+	s[n] = '\0';
+}
+
 using namespace std;
 
 ssize_t readAt(int fd, off64_t offset, void* data, size_t size) {
@@ -28,6 +35,12 @@ ssize_t readAt(int fd, off64_t offset, void* data, size_t size) {
     }
 
     return ::read(fd, data, size);
+}
+
+ssize_t readMp4file(int fd, off64_t offset, uint32_t* data, size_t size) {
+	auto ret = readAt(fd, offset, data, size);
+	*data = ntohl(*data);
+	return ret;
 }
 
 int get_file_size(const char* filename) {
@@ -50,7 +63,7 @@ void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
     	chunk_size = ntohl(hdr[0]);
     	chunk_type = ntohl(hdr[1]);
 
-    	MakeFourCCString(chunk_type, chunk);
+    	MakeNString(chunk_type, chunk, 4);
 
     	cout << "at offset " << *offset << " end " << end << endl;
     	cout << "readed " << readed << endl;
@@ -84,7 +97,7 @@ void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
 	            cout << "returned to depth " << depth << endl;
 
 	            if (*offset != stop_offset) {
-	                cout << "ERROR offset "<< *offset <<" not match " << stop_offset << endl;
+	                cout << "ERROR offset " << *offset << " not match " << stop_offset << endl;
 	            } else {
 	            	cout << "returned success " << *offset <<endl;
 	            }
@@ -99,26 +112,28 @@ void parseChunk(int fd, off64_t* offset, off64_t end, int depth) {
 	        	/*major_brand*/
 	        	uint32_t brand;
 	        	char dinfo[5];
-	        	readAt(fd, *offset, &brand, 4);
-	        	brand = ntohl(brand);
+	        	readMp4file(fd, *offset, &brand, 4);
 	        	MakeFourCCString(brand, dinfo);
 	        	cout << "major_brand " << dinfo << endl;
 
 	        	/*minor_version*/
 	        	*offset += 4;
-	        	readAt(fd, *offset, &brand, 4);
-	        	brand = ntohl(brand);
+	        	readMp4file(fd, *offset, &brand, 4);
 	        	cout << "minor_version "  << brand << endl;
 
 	        	/*compatible_brands*/
 	        	*offset += 4;
 	        	while (*offset < stop_offset) {
-	        		readAt(fd, *offset, &brand, 4);
-	        		brand = ntohl(brand);
+	        		readMp4file(fd, *offset, &brand, 4);
 	        		MakeFourCCString(brand, dinfo);
 	        		cout << "compatible_brands " << dinfo << endl;
 	        		*offset += 4;
 	        	}
+	        	break;
+	        }
+	        case FOURCC('m', 'v', 'h', 'd'):
+	        {
+	        	*offset += chunk_size;
 	        	break;
 	        }
 	        default:
